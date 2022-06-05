@@ -1,0 +1,10 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+cc_binary {
+    name: "cpuidle_bench",
+    srcs: ["cpuidle_bench.c"],
+    cflags: [
+        "-O3",
+        "-Wall",
+    ],
+}
