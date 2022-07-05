@@ -96,7 +96,7 @@ int main(int argc, char *argv[])
 		printf("idle ratio: %.4f\n", (stats1.total[i] - stats0.total[i]) / S_TO_US(1.0 * sample));
 		for (int j = 0; j < states_count; ++j) {
 			printf("- state %d\n", j);
-			printf("  avg: %llu\n", (stats1.time[i][j] / stats1.usage[i][j]));
+			printf("  avg: %llu\n", stats1.usage[i][j] ? (stats1.time[i][j] / stats1.usage[i][j]) : 0);
 			printf("  total: %llu\n", stats1.time[i][j]);
 		}
 		printf("--------------------------\n");
