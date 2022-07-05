@@ -170,7 +170,6 @@ void read_times(struct cpuidle_stats *stats)
 			}
 			if (!fgets(buf, sizeof(buf)/sizeof(buf[0]), fp))
 				exit(errno);
-			fclose(fp);
 			stats->time[i][j] = strtoull(buf, NULL, 10);
 		}
 	}
@@ -194,7 +193,6 @@ void read_usage(struct cpuidle_stats *stats)
 			}
 			if (!fgets(buf, sizeof(buf)/sizeof(buf[0]), fp))
 				exit(errno);
-			fclose(fp);
 			stats->usage[i][j] = strtoull(buf, NULL, 10);
 		}
 	}
