@@ -28,10 +28,8 @@
 #define SLIM 32
 /* This is "/sys/devices/system/cpu/cpuXXX/cpuidle/stateXX/usage" + 1 */
 #define MAXPATH 53
-/* The maximum number of characters unsigned long long can handle
- *
- * 18446744073709551615
- * (from limits.h) */
+/* The maximum number of characters unsigned long long can handle:
+   18446744073709551615 (from limits.h) */
 #define ULLCH 20
 /* Convert seconds to microseconds */
 #define S_TO_US(x) ((x) * 1000000)
@@ -132,7 +130,8 @@ int get_states_count(void)
 	char path[MAXPATH];
 	struct stat s;
 	/* Assume state0 exists.
-	 * If it doesn't exist the program will fail later with a verbose error */
+	   If it doesn't exist the program
+	   will fail later with a verbose error. */
 	int j = 1;
 
 	while (j < SLIM) {
@@ -165,11 +164,11 @@ void read_times(struct cpuidle_stats *stats)
 	for (int i = 0; i < cpu_count; ++i) {
 		for (int j = 0; j < states_count; ++j) {
 			sprintf(path, "%s%d%s%d%s", base, i, part1, j, part2);
-			if ((fp = fopen(path, "r")) == NULL) {
+			if (!(fp = fopen(path, "r"))) {
 				fprintf(stderr, "%s: %s\n", path, strerror(errno));
 				exit(errno);
 			}
-			if (fgets(buf, ULLCH+1, fp) == NULL)
+			if (!fgets(buf, sizeof(buf)/sizeof(buf[0]), fp))
 				exit(errno);
 			fclose(fp);
 			stats->time[i][j] = strtoull(buf, NULL, 10);
@@ -189,11 +188,11 @@ void read_usage(struct cpuidle_stats *stats)
 	for (int i = 0; i < cpu_count; ++i) {
 		for (int j = 0; j < states_count; ++j) {
 			sprintf(path, "%s%d%s%d%s", base, i, part1, j, part2);
-			if ((fp = fopen(path, "r")) == NULL) {
+			if (!(fp = fopen(path, "r"))) {
 				fprintf(stderr, "%s: %s\n", path, strerror(errno));
 				exit(errno);
 			}
-			if (fgets(buf, ULLCH+1, fp) == NULL)
+			if (!fgets(buf, sizeof(buf)/sizeof(buf[0]), fp))
 				exit(errno);
 			fclose(fp);
 			stats->usage[i][j] = strtoull(buf, NULL, 10);
