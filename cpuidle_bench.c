@@ -15,6 +15,7 @@
  */
 
 #include <errno.h>
+#include <fcntl.h>
 #include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -174,17 +175,18 @@ void prepare_paths(struct cpuidle_paths *paths)
 
 void read_times(struct cpuidle_stats *stats, struct cpuidle_paths *paths)
 {
-	FILE *fp;
 	char buf[ULLCH+1];
+	int fd;
 
 	for (int i = 0; i < cpu_count; ++i) {
 		for (int j = 0; j < states_count; ++j) {
-			if (!(fp = fopen(paths->time[i][j], "r"))) {
+			if ((fd = open(paths->time[i][j], O_RDONLY)) == -1) {
 				fprintf(stderr, "%s: %s\n", paths->time[i][j], strerror(errno));
 				exit(errno);
 			}
-			if (!fgets(buf, sizeof(buf)/sizeof(buf[0]), fp))
+			if (read(fd, buf, sizeof(buf)-sizeof(buf[0])) == -1)
 				exit(errno);
+			buf[sizeof(buf)/sizeof(buf[0])-1] = '\0';
 			stats->time[i][j] = strtoull(buf, NULL, 10);
 		}
 	}
@@ -192,17 +194,18 @@ void read_times(struct cpuidle_stats *stats, struct cpuidle_paths *paths)
 
 void read_usage(struct cpuidle_stats *stats, struct cpuidle_paths *paths)
 {
-	FILE *fp;
 	char buf[ULLCH+1];
+	int fd;
 
 	for (int i = 0; i < cpu_count; ++i) {
 		for (int j = 0; j < states_count; ++j) {
-			if (!(fp = fopen(paths->usage[i][j], "r"))) {
+			if ((fd = open(paths->usage[i][j], O_RDONLY)) == -1) {
 				fprintf(stderr, "%s: %s\n", paths->usage[i][j], strerror(errno));
 				exit(errno);
 			}
-			if (!fgets(buf, sizeof(buf)/sizeof(buf[0]), fp))
+			if (read(fd, buf, sizeof(buf)-sizeof(buf[0])) == -1)
 				exit(errno);
+			buf[sizeof(buf)/sizeof(buf[0])-1] = '\0';
 			stats->usage[i][j] = strtoull(buf, NULL, 10);
 		}
 	}
