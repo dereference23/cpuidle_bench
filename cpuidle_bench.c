@@ -35,6 +35,11 @@
 /* Convert seconds to microseconds */
 #define S_TO_US(x) ((x) * 1000000)
 
+struct cpuidle_fd {
+	int time[CLIM][SLIM];
+	int usage[CLIM][SLIM];
+};
+
 struct cpuidle_paths {
         char time[CLIM][SLIM][MAXPATH];
         char usage[CLIM][SLIM][MAXPATH];
@@ -53,13 +58,15 @@ int states_count;
 int get_cpu_count(void);
 int get_states_count(void);
 void count_total_idle(struct cpuidle_stats *stats);
+void open_files(struct cpuidle_paths *paths, struct cpuidle_fd *fd);
 void prepare_paths(struct cpuidle_paths *paths);
-void read_times(struct cpuidle_stats *stats, struct cpuidle_paths *paths);
-void read_usage(struct cpuidle_stats *stats, struct cpuidle_paths *paths);
+void read_times(struct cpuidle_stats *stats, struct cpuidle_fd *fd);
+void read_usage(struct cpuidle_stats *stats, struct cpuidle_fd *fd);
 
 int main(int argc, char *argv[])
 {
 	struct cpuidle_stats stats0 = {0}, stats1 = {0};
+	struct cpuidle_fd fd = {0};
 	struct cpuidle_paths paths = {0};
 	unsigned long long total_idle0 = 0, total_idle1 = 0; /* overflow? */
 	int sample = 1;
@@ -87,10 +94,12 @@ int main(int argc, char *argv[])
 	states_count = get_states_count();
 
 	prepare_paths(&paths);
-	read_times(&stats0, &paths);
+	open_files(&paths, &fd);
+
+	read_times(&stats0, &fd);
 	sleep(sample);
-	read_times(&stats1, &paths);
-	read_usage(&stats1, &paths);
+	read_times(&stats1, &fd);
+	read_usage(&stats1, &fd);
 
 	count_total_idle(&stats0);
 	count_total_idle(&stats1);
@@ -161,6 +170,22 @@ void count_total_idle(struct cpuidle_stats *stats)
 	}
 }
 
+void open_files(struct cpuidle_paths *paths, struct cpuidle_fd *fd)
+{
+	for (int i = 0; i < cpu_count; ++i) {
+		for (int j = 0; j < states_count; ++j) {
+			if ((fd->time[i][j] = open(paths->time[i][j], O_RDONLY)) == -1) {
+				fprintf(stderr, "%s: %s\n", paths->time[i][j], strerror(errno));
+				exit(errno);
+			}
+			if ((fd->usage[i][j] = open(paths->usage[i][j], O_RDONLY)) == -1) {
+				fprintf(stderr, "%s: %s\n", paths->usage[i][j], strerror(errno));
+				exit(errno);
+			}
+		}
+	}
+}
+
 void prepare_paths(struct cpuidle_paths *paths)
 {
 	for (int i = 0; i < cpu_count; ++i) {
@@ -173,18 +198,14 @@ void prepare_paths(struct cpuidle_paths *paths)
 	}
 }
 
-void read_times(struct cpuidle_stats *stats, struct cpuidle_paths *paths)
+void read_times(struct cpuidle_stats *stats, struct cpuidle_fd *fd)
 {
 	char buf[ULLCH+1];
-	int fd;
 
 	for (int i = 0; i < cpu_count; ++i) {
 		for (int j = 0; j < states_count; ++j) {
-			if ((fd = open(paths->time[i][j], O_RDONLY)) == -1) {
-				fprintf(stderr, "%s: %s\n", paths->time[i][j], strerror(errno));
-				exit(errno);
-			}
-			if (read(fd, buf, sizeof(buf)-sizeof(buf[0])) == -1)
+			lseek(fd->time[i][j], 0, 0);
+			if (read(fd->time[i][j], buf, sizeof(buf)-sizeof(buf[0])) == -1)
 				exit(errno);
 			buf[sizeof(buf)/sizeof(buf[0])-1] = '\0';
 			stats->time[i][j] = strtoull(buf, NULL, 10);
@@ -192,18 +213,13 @@ void read_times(struct cpuidle_stats *stats, struct cpuidle_paths *paths)
 	}
 }
 
-void read_usage(struct cpuidle_stats *stats, struct cpuidle_paths *paths)
+void read_usage(struct cpuidle_stats *stats, struct cpuidle_fd *fd)
 {
 	char buf[ULLCH+1];
-	int fd;
 
 	for (int i = 0; i < cpu_count; ++i) {
 		for (int j = 0; j < states_count; ++j) {
-			if ((fd = open(paths->usage[i][j], O_RDONLY)) == -1) {
-				fprintf(stderr, "%s: %s\n", paths->usage[i][j], strerror(errno));
-				exit(errno);
-			}
-			if (read(fd, buf, sizeof(buf)-sizeof(buf[0])) == -1)
+			if (read(fd->usage[i][j], buf, sizeof(buf)-sizeof(buf[0])) == -1)
 				exit(errno);
 			buf[sizeof(buf)/sizeof(buf[0])-1] = '\0';
 			stats->usage[i][j] = strtoull(buf, NULL, 10);
