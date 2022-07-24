@@ -34,6 +34,8 @@
 #define ULLCH 20
 /* Convert seconds to microseconds */
 #define S_TO_US(x) ((x) * 1000000)
+/* Convert a string to an ULL interger */
+#define STR_TO_ULL(x) strtoull((x), NULL, 10)
 
 struct cpuidle_fd {
 	int time[CLIM][SLIM];
@@ -46,8 +48,10 @@ struct cpuidle_paths {
 };
 
 struct cpuidle_stats {
-	unsigned long long time[CLIM][SLIM];  /* From                    */
-	unsigned long long usage[CLIM][SLIM]; /* include/linux/cpuidle.h */
+	struct {
+	char time[CLIM][SLIM][ULLCH+1];
+	char usage[CLIM][SLIM][ULLCH+1];
+	} raw;
 
 	unsigned long long total[CLIM]; /* overflow? */
 };
@@ -112,8 +116,9 @@ int main(int argc, char *argv[])
 		printf("idle ratio: %.4f\n", (stats1.total[i] - stats0.total[i]) / S_TO_US(1.0 * sample));
 		for (int j = 0; j < states_count; ++j) {
 			printf("- state %d\n", j);
-			printf("  avg: %llu\n", stats1.usage[i][j] ? (stats1.time[i][j] / stats1.usage[i][j]) : 0);
-			printf("  total: %llu\n", stats1.time[i][j]);
+			printf("  avg: %llu\n", STR_TO_ULL(stats1.raw.usage[i][j]) ?
+				(STR_TO_ULL(stats1.raw.time[i][j]) / STR_TO_ULL(stats1.raw.usage[i][j])) : 0);
+			printf("  total: %llu\n", STR_TO_ULL(stats1.raw.time[i][j]));
 		}
 		printf("--------------------------\n");
 	}
@@ -166,7 +171,7 @@ void count_total_idle(struct cpuidle_stats *stats)
 {
 	for (int i = 0; i < cpu_count; ++i) {
 		for (int j = 0; j < states_count; ++j)
-			stats->total[i] += stats->time[i][j];
+			stats->total[i] += STR_TO_ULL(stats->raw.time[i][j]);
 	}
 }
 
@@ -200,29 +205,23 @@ void prepare_paths(struct cpuidle_paths *paths)
 
 void read_times(struct cpuidle_stats *stats, struct cpuidle_fd *fd)
 {
-	char buf[ULLCH+1];
-
 	for (int i = 0; i < cpu_count; ++i) {
 		for (int j = 0; j < states_count; ++j) {
 			lseek(fd->time[i][j], 0, 0);
-			if (read(fd->time[i][j], buf, sizeof(buf)-sizeof(buf[0])) == -1)
+			if (read(fd->time[i][j], stats->raw.time[i][j], ULLCH) == -1)
 				exit(errno);
-			buf[sizeof(buf)/sizeof(buf[0])-1] = '\0';
-			stats->time[i][j] = strtoull(buf, NULL, 10);
+			stats->raw.time[i][j][ULLCH] = '\0';
 		}
 	}
 }
 
 void read_usage(struct cpuidle_stats *stats, struct cpuidle_fd *fd)
 {
-	char buf[ULLCH+1];
-
 	for (int i = 0; i < cpu_count; ++i) {
 		for (int j = 0; j < states_count; ++j) {
-			if (read(fd->usage[i][j], buf, sizeof(buf)-sizeof(buf[0])) == -1)
+			if (read(fd->usage[i][j], stats->raw.usage[i][j], ULLCH) == -1)
 				exit(errno);
-			buf[sizeof(buf)/sizeof(buf[0])-1] = '\0';
-			stats->usage[i][j] = strtoull(buf, NULL, 10);
+			stats->raw.usage[i][j][ULLCH] = '\0';
 		}
 	}
 }
